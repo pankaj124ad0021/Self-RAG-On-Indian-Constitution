@@ -74,7 +74,7 @@ critic_model = ChatBedrockConverse(**_r1_kwargs, temperature=1)
 # vector_store
 vector_store = Chroma(
     collection_name="constitution_and_ipc",
-    persist_directory="C:\\Users\\panka\\genai_project\\constitution_rag\\data\\constitution_and_ipc.chroma",
+    persist_directory="C:\\Users\\Atul kumar\\Documents\\project\\Self-RAG-On-Indian-Constitution\\data\\constitution_and_ipc.chroma",
     embedding_function=embeddings,
 )
 retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 3})

@@ -13,19 +13,29 @@ export default function ThreadRail({
   onClose,
   online,
   loading,
+  width,
 }) {
-  return (
-    <aside className={`rail${open ? ' rail--open' : ''}`}>
-      <button className="rail__close" onClick={onClose} aria-label="Close threads">
-        Close
-      </button>
+  if (!open) return null
 
+  return (
+    <aside
+      className={`rail${open ? ' rail--open' : ''}`}
+      style={width ? { width: `${width}px` } : undefined}
+    >
       <div className="rail__head">
-        <span className="rail__mark">संविधान</span>
-        <span className="rail__wordmark">Samvidhan</span>
+        <div className="rail__head-top">
+          <div>
+            <span className="rail__mark">संविधान</span>
+            <span className="rail__wordmark">Samvidhan</span>
+          </div>
+          <button className="rail__close-btn" onClick={onClose} aria-label="Close sidebar" title="Close sidebar">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+          </button>
+        </div>
         <p className="rail__tagline">
-          Answers on the Constitution of India and the Indian Penal Code. Every answer is checked
-          against its sources before you see it.
+          Answers on the Constitution of India and the IPC.
         </p>
       </div>
 
@@ -67,3 +77,4 @@ export default function ThreadRail({
     </aside>
   )
 }
+

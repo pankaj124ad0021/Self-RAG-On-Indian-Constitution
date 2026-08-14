@@ -27,25 +27,25 @@ function Meter({ turn }) {
 }
 
 /**
- * One question and the answer it produced, laid out like a page of a statute:
- * the record of how the answer was checked sits in the margin, the answer
- * itself in the text block.
+ * One question and the answer it produced.
  */
 export default function Exchange({ turn, onRetry }) {
   const running = turn.status === 'running'
 
   return (
     <article className="exchange">
-      <div className="exchange__gutter">
-        <MarginLedger steps={turn.steps} running={running} />
+      {/* Right-aligned User Query */}
+      <div className="exchange__user-row">
+        <div className="question-bubble">
+          {turn.question}
+        </div>
       </div>
 
-      <div className="exchange__body">
-        <h2 className="question">{turn.question}</h2>
-
+      {/* Left-aligned AI Response */}
+      <div className="exchange__ai-row">
         {running && !turn.answer && <p className="thinking">Working through it</p>}
 
-        {turn.answer && <div className="answer">{renderMarkdown(turn.answer)}</div>}
+        {turn.answer && <div className="answer answer-block">{renderMarkdown(turn.answer)}</div>}
 
         {turn.error && (
           <div className="notice" role="alert">
@@ -66,7 +66,11 @@ export default function Exchange({ turn, onRetry }) {
             <Meter turn={turn} />
           </>
         )}
+
+        {/* Execution stages & loading indicator located directly below the response / query */}
+        <MarginLedger steps={turn.steps} running={running} />
       </div>
     </article>
   )
 }
+

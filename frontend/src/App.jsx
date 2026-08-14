@@ -36,7 +36,61 @@ export default function App() {
   const [turnsByThread, setTurnsByThread] = useState({})
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
-  const [railOpen, setRailOpen] = useState(false)
+  const [railOpen, setRailOpen] = useState(true)
+
+  // Resizable sidebar state
+  const [railWidth, setRailWidth] = useState(() => {
+    const saved = localStorage.getItem('railWidth')
+    return saved ? Math.max(180, Math.min(450, Number(saved))) : 260
+  })
+  const isResizingRef = useRef(false)
+
+  // Theme state: dark or light
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('theme')
+    if (saved === 'dark' || saved === 'light') return saved
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }, [])
+
+  // Sidebar Drag Resizing Handlers
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    isResizingRef.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const handleMouseMove = (event) => {
+      if (!isResizingRef.current) return
+      const newWidth = Math.max(180, Math.min(450, event.clientX))
+      setRailWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('railWidth', railWidth)
+  }, [railWidth])
 
   const abortRef = useRef(null)
   const scrollerRef = useRef(null)
@@ -59,8 +113,6 @@ export default function App() {
     loadThreads()
   }, [loadThreads])
 
-  // Keep the newest exchange in view while the graph runs. The opening page is
-  // taller than a phone screen, so don't touch the scroll position there.
   useEffect(() => {
     if (!turns.length) return
     const el = scrollerRef.current
@@ -146,7 +198,6 @@ export default function App() {
     (id) => {
       const thread = threads.find((t) => t.id === id)
       setActiveId(id)
-      setRailOpen(false)
       setTurnsByThread((prev) =>
         prev[id]?.length ? prev : { ...prev, [id]: pairMessages(thread?.messages ?? []) }
       )
@@ -156,14 +207,13 @@ export default function App() {
 
   const startThread = useCallback(() => {
     setActiveId(newThreadId())
-    setRailOpen(false)
     setDraft('')
   }, [])
 
   const stop = useCallback(() => abortRef.current?.abort(), [])
 
   return (
-    <div className="app">
+    <div className={`app${railOpen ? ' app--sidebar-open' : ''}`}>
       <ThreadRail
         threads={threads}
         activeId={activeId}
@@ -173,14 +223,67 @@ export default function App() {
         onClose={() => setRailOpen(false)}
         online={online}
         loading={threadsLoading}
+        width={railWidth}
       />
+
+      {railOpen && (
+        <div
+          className="rail-resizer"
+          onMouseDown={handleMouseDown}
+          title="Drag to resize sidebar"
+        />
+      )}
 
       <main className="main">
         <div className="topbar">
-          <button className="topbar__menu" onClick={() => setRailOpen(true)}>
-            Threads
-          </button>
-          <span className="topbar__mark">संविधान</span>
+          <div className="topbar__left">
+            <button
+              className="topbar__toggle"
+              onClick={() => setRailOpen((prev) => !prev)}
+              aria-label={railOpen ? 'Close sidebar' : 'Open sidebar'}
+              title={railOpen ? 'Close sidebar' : 'Open sidebar'}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="9" y1="3" x2="9" y2="21" />
+              </svg>
+              <span>{railOpen ? 'Close Sidebar' : 'Sidebar'}</span>
+            </button>
+            <span className="topbar__mark">संविधान Samvidhan</span>
+          </div>
+
+          <div className="topbar__right">
+            <button
+              className="topbar__theme-btn"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              {theme === 'light' ? (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                  </svg>
+                  <span>Dark Mode</span>
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="5"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                  </svg>
+                  <span>Light Mode</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className={`scroller${turns.length ? '' : ' scroller--opening'}`} ref={scrollerRef}>
@@ -206,3 +309,4 @@ export default function App() {
     </div>
   )
 }
+

@@ -7,6 +7,7 @@ import uvicorn
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+import yaml
 from langchain_core.messages import messages_to_dict
 
 sys.path.append(
@@ -17,7 +18,7 @@ sys.path.append(
         )
     )
 )
-from workflow import get_workflow
+from src.workflow import get_workflow
 
 app = FastAPI()
 app.add_middleware(
@@ -60,6 +61,12 @@ async def get_all_chats():
         print(e)
         return {"status": "failed", "error": str(e)}
 
+# Load config parameters
+_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
+with open(_CONFIG_PATH, "r") as _f:
+    _cfg = yaml.safe_load(_f)
+_pipeline_defaults = _cfg.get("pipeline_defaults", {})
+
 async def run_workflow(thread_id, user_query):
     try:
         async with get_workflow() as (workflow, ck_ptr):
@@ -70,18 +77,18 @@ async def run_workflow(thread_id, user_query):
                 # if conv already exists
                 initial_state = {
                     "user_query": user_query,
-                    "k": 2,
-                    "max_retry_for_groundness_checking": 1,
-                    "max_retry_for_answer_relevant_checking": 1,
+                    "k": _pipeline_defaults.get("k", 2),
+                    "max_retry_for_groundness_checking": _pipeline_defaults.get("max_retry_for_groundness_checking", 1),
+                    "max_retry_for_answer_relevant_checking": _pipeline_defaults.get("max_retry_for_answer_relevant_checking", 1),
                 }
             else:
                 initial_state = {
                     "user_query": user_query,
-                    "k": 2,
-                    "max_retry_for_groundness_checking": 1,
-                    "max_retry_for_answer_relevant_checking": 1,
-                    "max_turns_before_summarisation": 2,
-                    "messages_to_include": 0,
+                    "k": _pipeline_defaults.get("k", 2),
+                    "max_retry_for_groundness_checking": _pipeline_defaults.get("max_retry_for_groundness_checking", 1),
+                    "max_retry_for_answer_relevant_checking": _pipeline_defaults.get("max_retry_for_answer_relevant_checking", 1),
+                    "max_turns_before_summarisation": _pipeline_defaults.get("max_turns_before_summarisation", 2),
+                    "messages_to_include": _pipeline_defaults.get("messages_to_include", 0),
                     "input_tokens": 0,
                     "output_tokens": 0,
                 }

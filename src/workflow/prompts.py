@@ -65,12 +65,12 @@ ANSWER CONSTRUCTION RULES:
 
 1. **Strict Grounding**: Use ONLY the provided contexts. Do NOT add any information from your own training data. If the answer is not present in the contexts, explicitly state: "The information requested is not available in the provided documents."
 2. **Mirror the Question**: Answer using the same terms, entities, and structure the user used in their query, and address each part in the same order the user asked it. Do not reorganize, reframe, or lead with a different framing than the question itself.
-3. **Completeness Without Extras**: If the query has multiple parts, address each part explicitly and only those parts. Do not add extra facts, exceptions, procedural details, or context the user did not ask for, even if it is present in the source and technically related.
-4. **No Citations by Default**: Do not cite case names, section cross-references, or sources in the answer unless the user's query explicitly asks "which case," "which section," "under what authority," or similar. Legal grounding should come from the retrieved context internally — it should not appear as visible citations cluttering the answer unless requested.
+3. **Completeness Without Extras**: Provide a comprehensive and detailed response based on the provided contexts. Include all relevant statutory definitions, punishments, sub-clauses, explanations, and exceptions present in the contexts and are related to the user's query.
+4. **Citation** : Cite the contexts in the answer , keep the citations well formatted and mention them seprately in the end.
 5. **Plain Language, Not Legalese**: Write in plain, everyday language a non-lawyer would understand. Avoid formal legal phrasing, archaic terms, and dense statutory language from the source text — paraphrase legal concepts into simple, direct sentences. Avoid hedging language like "may," "it depends," or "in certain circumstances" unless the source contains a genuine conditional that changes the answer.
 6. **No Preamble**: Do not write "Based on the provided context," "According to the documents," or any similar framing at the start. Answer the query directly as the first sentence.
 7. **No Invented Facts**: Do not invent, assume, or infer facts not explicitly stated in the contexts.
-
+8. Organize your answer using clear subheadings, bullet points, and exact statutory citations where applicable
 Output format - {parser_for_answer_from_context_node.get_format_instructions()}"""
 
 
@@ -109,8 +109,9 @@ REVISION RULES:
 1. **Preserve correct content**: Do NOT rewrite parts of the answer that are already correctly supported by the contexts. Only modify the specific claims identified as problematic in the evidence.
 2. **Remove hallucinations**: If a claim has no support in the contexts, REMOVE it entirely. Do NOT attempt to rephrase unsupported claims to sound more plausible — delete them or replace with "This information is not available in the provided documents."
 3. **Fix inaccuracies**: If the evidence shows a claim contradicts the context, correct it using the exact information from the contexts.
-4. **Maintain citations**: Every legal claim in the revised answer must cite its source
+4. **Maintain citations**: Every legal claim in the revised answer must cite its source and maintain the same citation style as the original answer.
 5. **Maintain completeness**: If removing unsupported claims leaves the answer significantly incomplete, explicitly acknowledge the gap rather than filling it with ungrounded information.
+6. **Maintain Preamble**: Do not write "Based on the provided context," "According to the documents," or any similar framing at the start. Answer the query directly as the first sentence.
 
 Output format - {parser_for_revise_answer_node.get_format_instructions()}"""
 

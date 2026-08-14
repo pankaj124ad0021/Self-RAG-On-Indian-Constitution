@@ -222,9 +222,20 @@ graph TD
 
 ## Demo
 
+### CLI Interface
+
 <p align="center">
-  <img src="data/demo_sc.png" alt="Project Demo Screenshot" width="85%" />
+  <img src="assets/demo_cli.png" alt="CLI Demo" width="85%" />
   <br />
+  <sub>Rich-powered terminal interface with streaming responses and conversation memory</sub>
+</p>
+
+### Web Frontend
+
+<p align="center">
+  <img src="assets/demo_frontend.png" alt="Frontend Demo" width="85%" />
+  <br />
+  <sub>React chat interface with real-time streaming and session management</sub>
 </p>
 
 ---
@@ -243,6 +254,8 @@ graph TD
 | **Pipeline Reproducibility** | [DVC](https://dvc.org/) — versioned, reproducible evaluation pipeline |
 | **CLI** | [Rich](https://github.com/Textualize/rich) — beautiful terminal interface with streaming |
 | **Package Manager** | [uv](https://github.com/astral-sh/uv) — fast Python package management |
+| **Backend API** | [FastAPI](https://fastapi.tiangolo.com/) — async REST API with streaming SSE support |
+| **Frontend** | [React](https://react.dev/) + [Vite](https://vitejs.dev/) — modern SPA chat interface |
 
 ---
 
@@ -266,6 +279,13 @@ constitution_rag/
 │       ├── test_set_generation.py      # Synthetic test set generator
 │       ├── clustering.py               # K-means clustering for test diversity
 │       └── knowledge_graph.py          # Knowledge graph construction
+├── Backend/
+│   └── main.py                         # FastAPI server with streaming SSE endpoints
+├── frontend/
+│   ├── src/                            # React components & pages
+│   ├── index.html
+│   ├── vite.config.js
+│   └── package.json
 ├── data/
 │   ├── articles.json                   # Constitution of India articles
 │   ├── penal_code_sections.json        # IPC sections
@@ -276,6 +296,9 @@ constitution_rag/
 │   ├── srag.ipynb                      # Self-RAG prototyping & experiments
 │   ├── ragas.ipynb                     # Ragas evaluation experiments
 │   └── ragas_results.ipynb             # Evaluation results analysis
+├── assets/
+│   ├── demo_cli.png                    # CLI demo screenshot
+│   └── demo_frontend.png               # Frontend demo screenshot
 ├── dvc.yaml                            # DVC pipeline definition (evaluation stages)
 ├── dvc.lock                            # DVC lock file (reproducibility snapshot)
 ├── pyproject.toml                      # Project config & dependencies
@@ -350,6 +373,24 @@ python src/cli.py
 |---|---|
 | `/new` | Start a new conversation thread |
 | `exit` | Quit the CLI |
+
+### 6. Launch the Backend API
+
+```bash
+uvicorn Backend.main:app --reload
+```
+
+The FastAPI server starts at `http://localhost:8000`. It exposes streaming SSE endpoints consumed by the frontend.
+
+### 7. Launch the Frontend
+
+```bash
+cd frontend
+npm install   # first time only
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser for the React chat interface.
 
 ---
 

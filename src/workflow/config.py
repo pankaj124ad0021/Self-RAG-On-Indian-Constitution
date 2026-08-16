@@ -1,6 +1,5 @@
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_aws import ChatBedrockConverse
+from langchain_aws import ChatBedrockConverse, BedrockEmbeddings
 from langchain_tavily import TavilySearch
 from dotenv import load_dotenv
 import os
@@ -25,7 +24,7 @@ if not os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
 AWS_BEARER_TOKEN_BEDROCK = os.environ["AWS_BEARER_TOKEN_BEDROCK"]
 
 # ── Embeddings ─────────────────────────────────────────────────────────────────
-embeddings = HuggingFaceEmbeddings(model_name=_emb["model_name"])
+embeddings = BedrockEmbeddings(model_id=_emb["model_name"], region_name=_models["region"])
 
 # ── Shared Bedrock kwargs ──────────────────────────────────────────────────────
 _bedrock_kwargs = dict(

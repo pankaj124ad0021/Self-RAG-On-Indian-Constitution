@@ -1,6 +1,6 @@
 import json
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_aws import BedrockEmbeddings
 from langchain_core.documents import Document
 import os
 
@@ -12,7 +12,7 @@ with open(CONFIG_PATH, "r") as f:
     wf_config = yaml.safe_load(f)
 
 model_name = wf_config["embeddings"]["model_name"]
-embeddings = HuggingFaceEmbeddings(model_name=model_name)
+embeddings = BedrockEmbeddings(model_id=model_name, region_name=wf_config["models"]["region"])
 
 data_dir=os.path.join(os.path.dirname(__file__),"../data")
 

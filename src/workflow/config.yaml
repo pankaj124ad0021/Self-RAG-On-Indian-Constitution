@@ -17,7 +17,7 @@ models:
   grounding_temperature: 0.0      # grounding verification (strict)
 
 embeddings:
-  model_name: "sentence-transformers/all-mpnet-base-v2"
+  model_name: "amazon.titan-embed-text-v2:0"
 
 vector_store:
   collection_name: "constitution_and_ipc"

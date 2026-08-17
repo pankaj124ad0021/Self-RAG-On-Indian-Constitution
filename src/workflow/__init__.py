@@ -35,11 +35,14 @@ from workflow.edges import (
 )
 
 if not os.getenv("LANGSMITH_API_KEY") and not os.getenv("LANGCHAIN_API_KEY"):
-    from phoenix.otel import register
-    tracer_provider = register(
-        project_name="constitution",
-        auto_instrument=True 
-    )
+    try:
+        from phoenix.otel import register
+        tracer_provider = register(
+            project_name="constitution",
+            auto_instrument=True 
+        )
+    except ImportError:
+        pass
 
 graph = StateGraph(state_schema=schema)
 

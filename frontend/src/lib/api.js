@@ -2,11 +2,11 @@ import { readEventStream } from './sse'
 
 /**
  * Where the FastAPI server lives.
- * Empty string means "use the Vite dev proxy at /api" (see vite.config.js).
+ * Falls back to 'http://127.0.0.1:8000' if VITE_API_BASE environment variable is not present.
  */
-const BASE = import.meta.env.VITE_API_BASE ?? '/api'
+const BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
 
-export const apiOrigin = BASE === '/api' ? 'http://127.0.0.1:8000' : BASE
+export const apiOrigin = BASE
 
 class ApiError extends Error {
   constructor(message, { cause, status } = {}) {

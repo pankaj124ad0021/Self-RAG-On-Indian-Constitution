@@ -8,6 +8,7 @@
    ============================================================ */
 
 :root {
+  color-scheme: light;
   --ink: #151e2a;
   --ink-2: #223040;
   --ink-3: #3d4a58;
@@ -20,6 +21,8 @@
   --brass: #9c7c3c;
   --on-ink: #e7e8e1;
   --on-ink-dim: #8e98a3;
+  --notice-bg: rgba(142, 43, 34, 0.045);
+  --notice-border: rgba(142, 43, 34, 0.35);
 
   /* Sidebar Tokens */
   --rail-bg: #151e2a;
@@ -39,7 +42,9 @@
   --measure: 44rem;
 }
 
+html[data-theme='dark'],
 [data-theme='dark'] {
+  color-scheme: dark;
   --ink: #f8fafc;
   --ink-2: #cbd5e1;
   --ink-3: #94a3b8;
@@ -52,6 +57,8 @@
   --brass: #f59e0b;
   --on-ink: #f8fafc;
   --on-ink-dim: #94a3b8;
+  --notice-bg: rgba(239, 68, 68, 0.12);
+  --notice-border: rgba(239, 68, 68, 0.35);
 
   /* Sidebar Tokens in Dark Mode */
   --rail-bg: #090d16;
@@ -861,10 +868,10 @@ button {
   max-width: var(--measure);
   margin-top: 1rem;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(142, 43, 34, 0.35);
+  border: 1px solid var(--notice-border);
   border-left: 2px solid var(--seal);
   border-radius: 4px;
-  background: rgba(142, 43, 34, 0.045);
+  background: var(--notice-bg);
   font-size: 0.85rem;
   line-height: 1.55;
   color: var(--ink-2);
@@ -908,6 +915,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.composer__mark {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
 }
 
 .composer__field {

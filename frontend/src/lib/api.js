@@ -87,7 +87,7 @@ export async function* streamAnswer({ threadId, query, signal }) {
 
   for await (const { event, data } of readEventStream(response)) {
     if (event === 'node_complete' && data?.node) {
-      yield { type: 'step', node: data.node }
+      yield { type: 'step', node: data.node, details: data.details ?? {} }
       continue
     }
 

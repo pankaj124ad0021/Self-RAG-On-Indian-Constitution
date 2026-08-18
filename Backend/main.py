@@ -34,14 +34,24 @@ async def get_all_chats():
     """
     Returns all chat threads with their chat_id and formatted messages.
     Only the latest checkpoint per thread_id is included.
+    Threads are ordered by the most recent checkpoint (newest first), so a
+    thread that was just appended to floats to the top of the list.
     """
     try:
         results = []
 
         async with get_workflow() as (workflow, ck_ptr):
-            # Query the underlying SQLite DB directly for all distinct thread_ids
+            # Pick the latest checkpoint row per thread_id, then order those
+            # by the same checkpoint_id descending. LangGraph's checkpoint_id
+            # starts with a sortable timestamp prefix, so this gives us
+            # most-recently-updated first.
             async with ck_ptr.conn.execute(
-                "SELECT DISTINCT thread_id FROM checkpoints"
+                """
+                SELECT thread_id, MAX(checkpoint_id) AS latest_checkpoint
+                FROM checkpoints
+                GROUP BY thread_id
+                ORDER BY latest_checkpoint DESC
+                """
             ) as cursor:
                 thread_ids = [row[0] async for row in cursor]
 
@@ -66,6 +76,133 @@ _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.yaml")
 with open(_CONFIG_PATH, "r") as _f:
     _cfg = yaml.safe_load(_f)
 _pipeline_defaults = _cfg.get("pipeline_defaults", {})
+
+
+def _preview_text(value, limit=120):
+    if not isinstance(value, str):
+        return value
+    return value[:limit] + ("…" if len(value) > limit else "")
+
+
+def _context_title(value):
+    """Pull a short heading out of a retrieved passage.
+
+    The corpus tends to lead with a line like ``Title - Article 14`` or
+    ``title - Article 14``. If we don't find one we fall back to the first
+    non-empty line so the ledger can still label the passage.
+    """
+    if not isinstance(value, str):
+        return ""
+    for line in value.split("\n"):
+        cleaned = line.strip()
+        if not cleaned:
+            continue
+        lowered = cleaned.lower()
+        if lowered.startswith("title -") or lowered.startswith("article -"):
+            return cleaned.split(" - ", 1)[-1].strip() or cleaned
+        return cleaned[:80]
+    return ""
+
+
+def _extract_node_details(node_name: str, data: dict) -> dict:
+    """Pick out the useful, user-facing fields from a node's output."""
+    if not isinstance(data, dict):
+        return {}
+
+    match node_name:
+        case "retrieval_decider_node":
+            return {"route": data.get("retrieval_required")}
+
+        case "generate_retriever_query_node":
+            queries = data.get("retriever_queries") or []
+            return {
+                "retriever_queries": [
+                    {
+                        "query": q.get("query"),
+                        "doc_type": q.get("doc_type"),
+                        "number": q.get("number"),
+                    }
+                    for q in queries
+                    if isinstance(q, dict)
+                ]
+            }
+
+        case "retrieve_node":
+            contexts = data.get("retrieved_contexts") or []
+            return {
+                "retrieved_count": len(contexts),
+                "retrieved_previews": [_preview_text(c, 120) for c in contexts],
+                "retrieved_titles": [_context_title(c) for c in contexts],
+            }
+
+        case "is_relevant_node":
+            retrieved = data.get("retrieved_contexts") or []
+            rel = data.get("relevant_contexts") or []
+            kept_indices = []
+            for passage in rel:
+                if not isinstance(passage, str):
+                    continue
+                for index, candidate in enumerate(retrieved):
+                    if candidate == passage:
+                        kept_indices.append(index)
+                        break
+            return {
+                "marked_relevant": len(rel) > 0,
+                "kept_indices": kept_indices,
+            }
+
+        case "aggregate_retrieval":
+            return {}
+
+        case "generate_web_search_query_node":
+            return {"web_queries": data.get("web_search_queries") or []}
+
+        case "web_search_node":
+            ctxs = data.get("relevant_contexts") or []
+            titles = []
+            for c in ctxs:
+                if not isinstance(c, str):
+                    continue
+                for line in c.split("\n"):
+                    line = line.strip()
+                    if line.lower().startswith("title -"):
+                        titles.append(line[len("title -"):].strip())
+                        break
+            return {
+                "web_result_count": len(ctxs),
+                "web_titles": titles,
+            }
+
+        case "answer_from_context_node":
+            return {"generated": True}
+
+        case "direct_generation_node":
+            return {"generated": True}
+
+        case "check_answer_grounded_node":
+            return {
+                "is_grounded": data.get("is_grounded"),
+                "evidence_preview": _preview_text(data.get("evidence") or "", 150),
+            }
+
+        case "revise_answer_node":
+            return {"revised": True}
+
+        case "is_answer_relevant_node":
+            return {
+                "is_relevant": data.get("is_answer_relevant"),
+                "explanation_preview": _preview_text(
+                    data.get("relevance_explanation") or "",
+                    150,
+                ),
+            }
+
+        case "rewrite_answer_node":
+            return {"rewritten": True}
+
+        case _:
+            return {}
+
 
 async def run_workflow(thread_id, user_query):
     try:
@@ -99,21 +236,26 @@ async def run_workflow(thread_id, user_query):
                 stream_mode="updates",
             ):
                 node_name = list(chunk.keys())[0]
-                yield f"event: node_complete\ndata: {json.dumps({
-                                "node": f"{node_name}",
-                            })} \n\n"
+                node_data = chunk[node_name]
+                details = _extract_node_details(node_name, node_data)
+                yield f"event: node_complete\ndata: {json.dumps({ 'node': node_name, 'details': details })}\n\n"
             response = await workflow.aget_state(
                     config={"configurable": {"thread_id": thread_id}}
                 )
             ai_response = response.values["generated_response"]
             in_tokens = response.values.get("input_tokens", 0)
             out_tokens = response.values.get("output_tokens", 0)
+            route = response.values.get("retrieval_required")
+            contexts = response.values.get("relevant_contexts") or []
+            web_searched = response.values.get("web_searched", False)
+            is_grounded = response.values.get("is_grounded")
+            is_answer_relevant = response.values.get("is_answer_relevant")
 
-            yield f"event: done\n {json.dumps({"response": ai_response,"in_tokens":in_tokens,"out_tokens":out_tokens})}"
+            yield f"event: done\ndata: {json.dumps({ 'response': ai_response, 'in_tokens': in_tokens, 'out_tokens': out_tokens, 'route': route, 'contexts': contexts, 'web_searched': web_searched, 'is_grounded': is_grounded, 'is_answer_relevant': is_answer_relevant })}\n\n"
 
     except Exception as e:
         print(e)
-        yield f"event:error \n {json.dumps({"message": str(e)})}"
+        yield f"event: error\ndata: {json.dumps({ 'message': str(e) })}\n\n"
 
 
 @app.get("/rag/stream")

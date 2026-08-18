@@ -44,3 +44,4 @@ dvc.lock
 # Logs & temp files
 *.log
 tmp/
+frontend_backup_20260818/

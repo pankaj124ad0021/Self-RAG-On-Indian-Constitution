@@ -10,22 +10,38 @@ function newThreadId() {
   return `thread-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-/** Turn a saved message list back into question/answer pairs. */
 function pairMessages(messages) {
   const turns = []
   let pending = null
+
   for (const message of messages) {
     if (message.role === 'user') {
       if (pending) turns.push(pending)
-      pending = { id: `h${turns.length}`, question: message.content, answer: '', steps: [], status: 'done', contexts: [] }
+      pending = {
+        id: `h${turns.length}`,
+        question: message.content,
+        answer: '',
+        steps: [],
+        status: 'done',
+        contexts: [],
+        inTokens: 0,
+        outTokens: 0,
+      }
     } else if (pending) {
       pending.answer = message.content
       turns.push(pending)
       pending = null
     }
   }
+
   if (pending) turns.push(pending)
   return turns
+}
+
+function threadTitle(thread) {
+  const first = thread?.messages?.find((message) => message.role === 'user')
+  if (!first?.content) return 'Fresh thread'
+  return first.content.length > 72 ? `${first.content.slice(0, 72)}...` : first.content
 }
 
 export default function App() {
@@ -37,65 +53,60 @@ export default function App() {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [railOpen, setRailOpen] = useState(true)
-
-  // Resizable sidebar state
   const [railWidth, setRailWidth] = useState(() => {
     const saved = localStorage.getItem('railWidth')
-    return saved ? Math.max(180, Math.min(450, Number(saved))) : 260
+    return saved ? Math.max(180, Math.min(450, Number(saved))) : 280
   })
-  const isResizingRef = useRef(false)
-
-  // Theme state: dark or light
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme')
     if (saved === 'dark' || saved === 'light') return saved
     return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
 
+  const isResizingRef = useRef(false)
+  const abortRef = useRef(null)
+  const scrollerRef = useRef(null)
+
+  const turns = turnsByThread[activeId] ?? []
+  const activeThread = threads.find((thread) => thread.id === activeId)
+  const activeTurn = turns[turns.length - 1] ?? null
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
   }, [theme])
 
+  useEffect(() => {
+    localStorage.setItem('railWidth', railWidth)
+  }, [railWidth])
+
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
   }, [])
 
-  // Sidebar Drag Resizing Handlers
-  const handleMouseDown = useCallback((e) => {
-    e.preventDefault()
+  const handleMouseDown = useCallback((event) => {
+    event.preventDefault()
     isResizingRef.current = true
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
 
-    const handleMouseMove = (event) => {
+    const handleMouseMove = (moveEvent) => {
       if (!isResizingRef.current) return
-      const newWidth = Math.max(180, Math.min(450, event.clientX))
-      setRailWidth(newWidth)
+      setRailWidth(Math.max(220, Math.min(420, moveEvent.clientX)))
     }
 
     const handleMouseUp = () => {
-      if (isResizingRef.current) {
-        isResizingRef.current = false
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-        window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', handleMouseUp)
-      }
+      if (!isResizingRef.current) return
+      isResizingRef.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
     }
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
   }, [])
-
-  useEffect(() => {
-    localStorage.setItem('railWidth', railWidth)
-  }, [railWidth])
-
-  const abortRef = useRef(null)
-  const scrollerRef = useRef(null)
-
-  const turns = turnsByThread[activeId] ?? []
 
   const loadThreads = useCallback(async () => {
     try {
@@ -115,8 +126,8 @@ export default function App() {
 
   useEffect(() => {
     if (!turns.length) return
-    const el = scrollerRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    const element = scrollerRef.current
+    if (element) element.scrollTop = element.scrollHeight
   }, [turns.length, busy])
 
   const patchTurn = useCallback((threadId, turnId, patch) => {
@@ -162,7 +173,12 @@ export default function App() {
             setTurnsByThread((prev) => ({
               ...prev,
               [threadId]: (prev[threadId] ?? []).map((turn) =>
-                turn.id === turnId ? { ...turn, steps: [...turn.steps, event.node] } : turn
+                turn.id === turnId
+                  ? {
+                      ...turn,
+                      steps: [...turn.steps, { node: event.node, details: event.details ?? {} }],
+                    }
+                  : turn
               ),
             }))
           } else if (event.type === 'answer') {
@@ -177,6 +193,7 @@ export default function App() {
             })
           }
         }
+
         setOnline(true)
         loadThreads()
       } catch (error) {
@@ -196,7 +213,7 @@ export default function App() {
 
   const selectThread = useCallback(
     (id) => {
-      const thread = threads.find((t) => t.id === id)
+      const thread = threads.find((item) => item.id === id)
       setActiveId(id)
       setTurnsByThread((prev) =>
         prev[id]?.length ? prev : { ...prev, [id]: pairMessages(thread?.messages ?? []) }
@@ -220,21 +237,22 @@ export default function App() {
         onSelect={selectThread}
         onNew={startThread}
         open={railOpen}
-        onClose={() => setRailOpen(false)}
+        onToggle={() => setRailOpen((prev) => !prev)}
         online={online}
         loading={threadsLoading}
         width={railWidth}
       />
 
-      {railOpen && (
-        <div
-          className="rail-resizer"
-          onMouseDown={handleMouseDown}
-          title="Drag to resize sidebar"
-        />
-      )}
+      {railOpen ? (
+        <div className="rail-resizer" onMouseDown={handleMouseDown} title="Drag to resize sidebar" />
+      ) : null}
 
       <main className="main">
+        <div className="main__ambient" aria-hidden="true">
+          <div className="main__ambient-orb main__ambient-orb--one" />
+          <div className="main__ambient-orb main__ambient-orb--two" />
+        </div>
+
         <div className="topbar">
           <div className="topbar__left">
             <button
@@ -247,12 +265,25 @@ export default function App() {
                 <rect x="3" y="3" width="18" height="18" rx="2" />
                 <line x1="9" y1="3" x2="9" y2="21" />
               </svg>
-              <span>{railOpen ? 'Close Sidebar' : 'Sidebar'}</span>
             </button>
-            <span className="topbar__mark">संविधान Samvidhan</span>
+
+            <div className="topbar__identity">
+              <span className="topbar__mark">Samvidhan</span>
+              <span className="topbar__submark">
+                {turns.length ? threadTitle(activeThread) : 'Constitution and IPC reasoning assistant'}
+              </span>
+            </div>
           </div>
 
           <div className="topbar__right">
+            <div className={`topbar__status ${busy ? 'topbar__status--busy' : ''}`}>
+              <span className={`dot ${online ? 'dot--live' : 'dot--down'}`} />
+              <span>{online ? (busy ? 'Workflow running' : 'Graph ready') : 'Graph offline'}</span>
+              {activeTurn?.steps?.length ? (
+                <span className="topbar__status-meta">{activeTurn.steps.length} live updates</span>
+              ) : null}
+            </div>
+
             <button
               className="topbar__theme-btn"
               onClick={toggleTheme}
@@ -262,24 +293,24 @@ export default function App() {
               {theme === 'light' ? (
                 <>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                   </svg>
-                  <span>Dark Mode</span>
+                  <span>Dark mode</span>
                 </>
               ) : (
                 <>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="5"/>
-                    <line x1="12" y1="1" x2="12" y2="3"/>
-                    <line x1="12" y1="21" x2="12" y2="23"/>
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                    <line x1="1" y1="12" x2="3" y2="12"/>
-                    <line x1="21" y1="12" x2="23" y2="12"/>
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    <circle cx="12" cy="12" r="5" />
+                    <line x1="12" y1="1" x2="12" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="23" />
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                    <line x1="1" y1="12" x2="3" y2="12" />
+                    <line x1="21" y1="12" x2="23" y2="12" />
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                   </svg>
-                  <span>Light Mode</span>
+                  <span>Light mode</span>
                 </>
               )}
             </button>
@@ -292,7 +323,7 @@ export default function App() {
           ) : (
             <div className="sheet">
               {turns.map((turn) => (
-                <Exchange key={turn.id} turn={turn} onRetry={(t) => ask(t.question)} />
+                <Exchange key={turn.id} turn={turn} onRetry={(item) => ask(item.question)} />
               ))}
             </div>
           )}
@@ -309,4 +340,3 @@ export default function App() {
     </div>
   )
 }
-

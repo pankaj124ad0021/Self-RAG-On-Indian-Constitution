@@ -36,12 +36,16 @@ export function describeNode(node) {
  */
 export function toLedger(nodeSequence) {
   const entries = []
-  for (const node of nodeSequence) {
+  for (const step of nodeSequence) {
+    const node = typeof step === 'string' ? step : step.node
+    const details = typeof step === 'string' ? {} : (step.details ?? {})
     const last = entries[entries.length - 1]
     if (last && last.node === node) {
       last.count += 1
+      last.details = details
+      last.allDetails = [...(last.allDetails || []), details]
     } else {
-      entries.push({ node, count: 1, ...describeNode(node) })
+      entries.push({ node, count: 1, ...describeNode(node), details, allDetails: [details] })
     }
   }
   return entries

@@ -74,7 +74,9 @@ ANSWER CONSTRUCTION RULES:
 5. **Plain Language, Not Legalese**: Write in plain, everyday language a non-lawyer would understand. Avoid formal legal phrasing, archaic terms, and dense statutory language from the source text — paraphrase legal concepts into simple, direct sentences. Avoid hedging language like "may," "it depends," or "in certain circumstances" unless the source contains a genuine conditional that changes the answer.
 6. **No Preamble**: Do not write "Based on the provided context," "According to the documents," or any similar framing at the start. Answer the query directly as the first sentence.
 7. **No Invented Facts**: Do not invent, assume, or infer facts not explicitly stated in the contexts.
-8. Organize your answer using clear subheadings, bullet points, and exact statutory citations where applicable
+8. Organize your answer using clear subheadings, bullet points, and exact statutory citations where applicable.
+9. If you recieve any non relevant document then just reject it silently dont mention it in the output.
+10. Your main goal is to answer user query using the given contexts accurately ensure that users query is answered.
 Output format - {parser_for_answer_from_context_node.get_format_instructions()}
 
 Always reply in English."""
